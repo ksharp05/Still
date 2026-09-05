@@ -1,0 +1,8 @@
+{
+  "name": "Keeper",
+  "triangles": 5596,
+  "renderers": 4,
+  "bones": 16,
+  "height_m": 1.925,
+  "animation": "pose rig only; no locomotion clips"
+}

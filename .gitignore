@@ -1,0 +1,57 @@
+# Unity generated ------------------------------------------------------------
+# Library/ is a multi-GB import cache Unity rebuilds from Assets/ + ProjectSettings/.
+# It must never be committed; a fresh clone regenerates it on first open.
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+sysinfo.txt
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Generated project files — Unity rewrites these from the .cs files on demand.
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.userprefs
+.vs/
+.idea/
+.vscode/
+
+# Builds ----------------------------------------------------------------------
+# The packaged player is ~166 MB and is reproducible via STILL > Build Windows Review.
+# Builds/Review is the exception: those renders are referenced by POLISH_PROGRESS.md
+# as the visual record of each pass, so they are kept deliberately.
+/Builds/*
+!/Builds/Review/
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# Art sources -----------------------------------------------------------------
+# Blender writes a .blend1 backup of the previous save beside every .blend. They are
+# pure duplicates and would roughly double the art footprint in history.
+*.blend1
+*.blend2
+
+# Third-party CC0 base meshes, ~95 MB as both an archive and its extracted copy.
+# Re-downloadable from Blender's official library; see ArtSource/ThirdParty for the
+# attribution notes, which are kept.
+/ArtSource/ThirdParty/**
+!/ArtSource/ThirdParty/
+!/ArtSource/ThirdParty/**/*.md
+!/ArtSource/ThirdParty/**/*.txt
+
+# OS --------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
