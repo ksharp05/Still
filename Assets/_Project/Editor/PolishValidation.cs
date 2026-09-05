@@ -102,6 +102,7 @@ public static class PolishValidation
                     CheckDeflection();
                     CheckWalk();
                     CheckEnvironment();
+                    CheckTelegraph();
 
                     // Emitted here and photographed next step: a particle emitted this frame has
                     // not been simulated yet and renders as nothing at all.
@@ -495,6 +496,97 @@ public static class PolishValidation
         // TimeDirector was always built to accept but GetAxisRaw could never produce.
         Check(factor > WorldTime.Frozen && factor < 1f,
               "Walking reaches intent between frozen and full, which GetAxisRaw alone cannot");
+    }
+
+    /// <summary>
+    /// Attack telegraphs.
+    ///
+    /// The invariant worth defending is honesty: the painted area must be the area that actually
+    /// hurts, and must stop at walls. A telegraph that overstates its reach trains the player to
+    /// ignore it, and one that understates it kills them in a spot the game drew as safe.
+    /// </summary>
+    private static void CheckTelegraph()
+    {
+        var player = GameManager.PlayerTransform;
+
+        // Somewhere open, so an unclipped wedge can reach its full radius.
+        Vector3 clear = player.position;
+        var probe = ActorFactory.CreateEnemy(EnemyKind.Melee, clear, 1, GameManager.FloorRoot);
+        var telegraph = probe.GetComponent<EnemyTelegraph>();
+
+        Check(telegraph != null, "Every enemy carries an attack telegraph");
+        Check(!telegraph.Visible, "A telegraph is hidden until its enemy winds up");
+        Check(telegraph.Surface.GetComponent<Collider>() == null &&
+              telegraph.Surface.GetComponentInChildren<Collider>() == null,
+              "The telegraph is painted ground and never collides with anything");
+
+        // Full charge, open ground: the drawn wedge must reach the radius it was asked for.
+        const float radius = 3f;
+        telegraph.Show(clear, Vector3.forward, radius, 110f, Palette.Melee, 1f);
+        Check(telegraph.Visible, "A telegraph appears once its enemy is charging");
+
+        Bounds drawn = telegraph.Surface.bounds;
+        float reach = Mathf.Max(drawn.extents.x, drawn.extents.z);
+        Check(reach > radius * 0.6f, "The telegraph reaches the radius it was given (" + reach.ToString("F2") + "m)");
+        Check(reach <= radius + 0.2f, "The telegraph never claims more ground than the attack covers");
+
+        // Alpha must ramp, or the warning arrives with no lead time.
+        var mesh = telegraph.Surface.GetComponent<MeshFilter>().sharedMesh;
+        telegraph.Show(clear, Vector3.forward, radius, 110f, Palette.Melee, 0f);
+        float early = 0f;
+        foreach (Color c in mesh.colors) early = Mathf.Max(early, c.a);
+
+        telegraph.Show(clear, Vector3.forward, radius, 110f, Palette.Melee, 1f);
+        float late = 0f;
+        foreach (Color c in mesh.colors) late = Mathf.Max(late, c.a);
+        Check(late > early && late > 0.05f, "A telegraph builds from a hint to a clear warning");
+
+        // A wall in front must cut the wedge short.
+        var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wall.layer = Layers.Wall;
+        wall.transform.position = clear + Vector3.forward * 1f + Vector3.up * 0.5f;
+        wall.transform.localScale = new Vector3(8f, 2f, 0.2f);
+        Physics.SyncTransforms();
+
+        telegraph.Show(clear, Vector3.forward, radius, 110f, Palette.Melee, 1f);
+        float clipped = telegraph.Surface.bounds.max.z - clear.z;
+        Check(clipped < 1.2f, "A wall clips the telegraph rather than letting it reach through stone (" + clipped.ToString("F2") + "m)");
+
+        UnityEngine.Object.DestroyImmediate(wall);
+        telegraph.Hide();
+        Check(!telegraph.Visible, "A telegraph clears when the attack resolves");
+        UnityEngine.Object.DestroyImmediate(probe);
+
+        CaptureTelegraph();
+    }
+
+    /// <summary>
+    /// Stage a brute mid-swing and an archer mid-draw, and photograph what the player would read.
+    ///
+    /// Driven directly rather than by waiting for the state machine: a windup lasts under a
+    /// second and the harness settles twelve frames between steps, so a naturally-timed telegraph
+    /// would be gone before the shutter.
+    /// </summary>
+    private static void CaptureTelegraph()
+    {
+        var player = GameManager.PlayerTransform;
+        Vector3 at = player.position;
+
+        var brute = ActorFactory.CreateEnemy(EnemyKind.Melee, at + Vector3.forward * 3.4f, 1, GameManager.FloorRoot);
+        var archer = ActorFactory.CreateEnemy(EnemyKind.Ranged, at + Vector3.left * 5f, 1, GameManager.FloorRoot);
+        Physics.SyncTransforms();
+
+        // Both aimed at the player, at the moment the warning is loudest.
+        brute.GetComponent<EnemyTelegraph>()
+             .Show(brute.transform.position, (at - brute.transform.position).normalized, 3f, 110f, Palette.Melee, 1f);
+        archer.GetComponent<EnemyTelegraph>()
+              .Show(archer.transform.position + Vector3.up * 0.2f, (at - archer.transform.position).normalized,
+                    14f, 5f, Palette.Ranged, 1f);
+
+        Capture("telegraph");
+
+        UnityEngine.Object.DestroyImmediate(brute);
+        UnityEngine.Object.DestroyImmediate(archer);
     }
 
     /// <summary>

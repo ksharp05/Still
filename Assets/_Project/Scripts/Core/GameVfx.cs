@@ -24,6 +24,13 @@ public class GameVfx : MonoBehaviour
     public Material PlayerTrail => _playerTrail;
     public Material EnemyTrail => _enemyTrail;
 
+    /// <summary>
+    /// The shared ribbon material, white-tinted so callers colour their own geometry through
+    /// vertex colours. The pooled slash uses it, and so does the enemy attack telegraph — which
+    /// is why it is shared rather than copied: neither owns it, and neither may recolour it.
+    /// </summary>
+    public Material Ribbon => _materials[3];
+
     private readonly ParticleSystem[] _banks = new ParticleSystem[9];
     private readonly Arc[] _arcs = new Arc[ArcCapacity];
     private readonly Material[] _materials = new Material[4];

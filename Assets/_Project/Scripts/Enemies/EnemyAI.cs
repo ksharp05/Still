@@ -26,6 +26,23 @@ public class EnemyAI : MonoBehaviour
 {
     private enum State { Idle, Chase, Windup, Recover, Stagger }
 
+    /// <summary>
+    /// Extra reach the melee strike actually has beyond <c>attackRange</c>, which is the range it
+    /// commits from. Named because three things must agree on it: the damage check, the slash
+    /// visual, and the telegraph. A telegraph that drew the smaller number would be a lie — the
+    /// player would stand in a spot the game had shown as safe and be hit anyway.
+    /// </summary>
+    private const float StrikeOverreach = 0.6f;
+
+    /// <summary>Angular width of the melee swing, shared by the strike visual and the telegraph.</summary>
+    private const float StrikeArcDegrees = 110f;
+
+    /// <summary>
+    /// Angular width of an archer's telegraphed firing lane. Narrow on purpose: an arrow travels
+    /// a line, and a wide cone would overstate the threat and make cover look useless.
+    /// </summary>
+    private const float LaneDegrees = 5f;
+
     [Header("Identity")]
     [SerializeField] private EnemyKind kind = EnemyKind.Melee;
 
@@ -51,6 +68,7 @@ public class EnemyAI : MonoBehaviour
     private CharacterController _cc;
     private Health _health;
     private Renderer _renderer;
+    private EnemyTelegraph _telegraph;
     private MaterialPropertyBlock _mpb;
     private Color _baseEmission;
     private Vector3 _baseScale;
@@ -64,6 +82,7 @@ public class EnemyAI : MonoBehaviour
         _renderer = GetComponentInChildren<Renderer>();
         foreach (var candidate in GetComponentsInChildren<Renderer>())
             if (candidate.name.StartsWith("Core")) { _renderer = candidate; break; }
+        _telegraph = gameObject.AddComponent<EnemyTelegraph>();
         _mpb = new MaterialPropertyBlock();
         _baseScale = transform.localScale;
 
@@ -146,6 +165,7 @@ public class EnemyAI : MonoBehaviour
             case State.Windup:
                 FaceDirection(direction, dt);
                 PulseTelegraph();
+                ShowThreat(direction);
                 if (_stateTimer <= 0f) Strike(direction, player, distance);
                 break;
 
@@ -188,8 +208,8 @@ public class EnemyAI : MonoBehaviour
     {
         if (kind == EnemyKind.Melee)
         {
-            GameVfx.Slash(transform.position, direction, attackRange, 110f, true);
-            if (distance <= attackRange + 0.6f && HasLineOfSight(player) && GameManager.PlayerHealth != null)
+            GameVfx.Slash(transform.position, direction, attackRange + StrikeOverreach, StrikeArcDegrees, true);
+            if (distance <= attackRange + StrikeOverreach && HasLineOfSight(player) && GameManager.PlayerHealth != null)
             {
                 if (GameManager.PlayerHealth.TakeDamage(damage, player.position))
                 {
@@ -286,9 +306,30 @@ public class EnemyAI : MonoBehaviour
         transform.localScale = _baseScale * (1f + charge * 0.16f);
     }
 
+    /// <summary>
+    /// Paint the ground this attack is about to cover.
+    ///
+    /// The radii come from the same constants the strike uses, so what is drawn is exactly what
+    /// is dangerous. A brute shows the wedge it will sweep; an archer shows the lane its arrow
+    /// will travel, which is the one piece of information a frozen room was never giving you.
+    /// </summary>
+    private void ShowThreat(Vector3 direction)
+    {
+        if (_telegraph == null || windupTime <= 0f) return;
+
+        float charge = 1f - Mathf.Clamp01(_stateTimer / windupTime);
+        Vector3 origin = transform.position;
+
+        if (kind == EnemyKind.Melee)
+            _telegraph.Show(origin, direction, attackRange + StrikeOverreach, StrikeArcDegrees, Palette.Melee, charge);
+        else
+            _telegraph.Show(origin + Vector3.up * 0.2f, direction, attackRange, LaneDegrees, Palette.Ranged, charge);
+    }
+
     private void ClearTelegraph()
     {
         transform.localScale = _baseScale;
+        if (_telegraph != null) _telegraph.Hide();
         if (_renderer == null) return;
 
         _renderer.GetPropertyBlock(_mpb);

@@ -43,6 +43,46 @@ generated concept reference and an actual Blender design study. The Blender mode
 not reached the reference's fidelity and is not a finished or game-ready replacement.
 Resolve the hero's quality and identity before deriving enemies and environments from it.
 
+## Enemies — readable attack telegraphs
+
+The last piece of the benchmark-combat-room milestone. Enemies already had a Windup state that
+swelled their emission and scale, which told you *who* was attacking and roughly *when*. It never
+told you **where** — and in a game whose whole premise is stopping to read a frozen room, where is
+the question that matters. A brute threatened a three-metre wedge you could not see; an archer
+threatened a line across the room that did not exist until the arrow did.
+
+`EnemyTelegraph` now paints the threatened ground during a windup: a wedge for a swing, a narrow
+lane for a shot, each fading in from a hint to a clear warning as the blow charges.
+
+- **It draws what actually hurts.** The melee strike damages at `attackRange + 0.6` while the
+  slash visual was drawn at `attackRange` — so the visual already understated the real reach by
+  60cm. That overreach is now a named constant, `StrikeOverreach`, shared by the damage check,
+  the slash and the telegraph, so the three cannot drift. A telegraph that understates its reach
+  kills the player in a spot the game drew as safe.
+- **It stops at walls.** Every spoke raycasts, so a wedge is cut short by cover and an archer's
+  lane ends at the stone. The review capture shows this better than it was staged: the melee
+  wedge is severed in two by a wall while the archer's lane threads through the doorway between
+  them.
+- **It is painted ground, nothing more.** No collider, no physics, no decisions. It is parented
+  to the VFX root rather than to the enemy and fed world-space vertices, because the enemy's own
+  transform is both rotated by facing and scaled by the windup pulse — either would warp geometry
+  parented under it.
+- **It freezes with the world.** The windup ticks on `WorldTime.DeltaTime`, so standing still
+  leaves the warning hanging in the air at whatever charge it had reached, which is exactly the
+  thing the player stopped in order to read.
+
+Nine assertions cover the honesty properties specifically: the wedge reaches the radius it was
+given, never claims more ground than the attack covers, is clipped by a wall rather than reaching
+through it, builds from faint to clear rather than appearing at full strength, carries no
+collider, and clears when the attack resolves. `Builds/Review/telegraph.png` renders both kinds.
+
+Validation now stands at 203 gameplay checks and 25 VFX checks, all passing.
+
+**Not done.** Alpha, colour and the archer lane's 14m length are first guesses that want playing —
+a room with four archers may read as clutter, and the honest fix then is fewer archers or shorter
+lanes, not a dimmer warning. The milestone's remaining question is unchanged: validate a benchmark
+combat room before expanding content across the dungeon.
+
 ## Particle effects — finishing the incoming VFX work
 
 A particle system arrived from work done elsewhere: `GameVfx` (shared bounded banks, a pooled
@@ -357,7 +397,6 @@ Validation:
 
 The first phase remains in progress. This is not a finished release. Remaining work includes manual input/focus testing in the player, damage direction feedback, smoother floor transitions, better settings controls and persisted score. Subsequent phases still include authored combat spaces, animated characters, environment detail, upgrades, encounter progression, a final encounter and victory, and performance/accessibility review.
 
-The environment half of that milestone is now complete: the architectural kit and its
-dressing are both in, and verified in the shipped build rather than only in the editor. What
-remains of the milestone is readable attack telegraphs on the enemies. Validate a benchmark
-combat room before expanding content across the dungeon.
+Both halves of that milestone are now in: the architectural kit with its dressing, and readable
+attack telegraphs on the enemies. What remains is to validate a benchmark combat room by playing
+it — the automated checks establish that the systems behave, not that the encounter is good.
